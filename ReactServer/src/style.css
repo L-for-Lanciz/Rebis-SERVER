@@ -1,0 +1,52 @@
+#small-forme-edable {
+  width: 300px;
+  height: 20px;
+  font-family: candara;
+  font-size: 18px;
+  text-align: center;
+  font-weight: bold;
+  padding-top: 5px;
+  color: #0b0026;
+  margin: 0;
+  line-height: 20px;
+  display: inline-block;
+  text-decoration: none;
+  outline: none;
+  border-radius: 0px;
+}
+
+#font-per-body {
+  font-size: 17px;
+  font-family: candara;
+  color: #0036a1;
+  margin-bottom: -1px;
+  margin-left: 20px;
+  float: left;
+}
+
+#scndfont-per-body {
+  font-size: 17px;
+  font-weight: bold;
+  font-family: candara;
+  color: #0b0026;
+  margin-left: 120px;
+  margin-bottom: -1px;
+  text-align: left;
+}
+
+#small-status {
+  width: 300px;
+  height: 20px;
+  font-family: candara;
+  font-size: 16px;
+  text-align: center;
+  font-weight: bold;
+  padding-top: 5px;
+  color: #cf9b00;
+  margin: 0;
+  line-height: 20px;
+  display: inline-block;
+  text-decoration: none;
+  outline: none;
+  border-radius: 0px;
+}
