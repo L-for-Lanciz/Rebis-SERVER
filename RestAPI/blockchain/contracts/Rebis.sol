@@ -7,12 +7,19 @@ contract Rebis {
   enum states {PENDING, RENTED, ENDED}
   bool reEntrancyMutex1 = false;
   bool reEntrancyMutex2 = false;
+  address payable owner;
 
   mapping(uint => Rental) public rentals;
 
+
+  modifier onlyOwner() {
+    require (msg.sender == owner);
+    _;
+  }
+
   constructor() {
       dapp_name = "Rebis";
-
+      owner = msg.sender;
   }
 
   struct Rental {
@@ -126,6 +133,19 @@ contract Rebis {
 
   function rentalsDeployed() public view returns(uint) {
     return rentalCounter;
+  }
+
+  function withdraw(uint amount) public onlyOwner returns(bool) {
+    require(amount <= address(this).balance);
+    owner.transfer(amount);
+    return true;
+  }
+
+  // Fallback function
+  fallback() external payable {
+  }
+
+  receive() external payable {
   }
 
 }
