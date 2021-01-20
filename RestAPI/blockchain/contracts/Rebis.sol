@@ -146,6 +146,7 @@ contract Rebis {
   }
 
   receive() external payable {
+    require(msg.value > 0);
   }
 
 }
