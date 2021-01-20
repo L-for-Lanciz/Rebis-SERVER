@@ -1,5 +1,8 @@
 require('babel-register');
 require('babel-polyfill');
+
+var HDWalletProvider = require("truffle-hdwallet-provider");
+const MNEMONIC = 'myownmnemonic';
 /**
  * Use this file to configure your truffle project. It's seeded with some
  * common settings for different networks and features like migrations,
@@ -49,6 +52,15 @@ module.exports = {
       port: 8545,            // Standard Ethereum port (default: none)
       network_id: "*",       // Any network (default: none)
      },
+
+     ropsten: {
+      provider: function() {
+        return new HDWalletProvider(MNEMONIC, "https://ropsten.infura.io/v3/7a56a2e59589490681f5a5c3826db721")
+      },
+      network_id: 3,
+      gas: 4000000      //make sure this gas allocation isn't over 4M, which is the max
+    }
+
     // Another network with more advanced options...
     // advanced: {
     // port: 8777,             // Custom port

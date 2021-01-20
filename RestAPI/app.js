@@ -4,6 +4,7 @@
   // const definition for the route
  const express = require('express');
  const app = express();
+ const contract_address = '0x08d710a0717ed022403BcCc4dD4Ce2e878994FE7';
   // create a route
   // listen on this port
  app.listen(3100);
@@ -18,59 +19,67 @@
  var web3;
 
  async function loadBlockchainData() {
-   web3 = new Web3(Web3.givenProvider || 'ws://localhost:8545');
+   // truffle console --network ropsten     -to connect to the ropsten testnet
+   web3 = new Web3(new Web3.providers.HttpProvider(
+    'https://ropsten.infura.io/v3/7a56a2e59589490681f5a5c3826db721'));
    const networkID = await web3.eth.net.getId();
-   const mainAddr = '0x043B59e59A25a9659ecb738F9e4147DE5f9fA2d0';
-   rebis = new web3.eth.Contract(Rebis.abi, mainAddr);
-// HOW TO GET CORRECT VALUE FROM RENTALCOUNTER.SOL
-   //rebis.methods.rentalsDeployed().call({ from:mainAddr }).then(console.log);
+   rebis = new web3.eth.Contract(Rebis.abi, contract_address);
+   var rentalsCounterPrinter = setInterval(function() {
+      console.log("Current number of rental transactions: ");
+      const cnt = rebis.methods.rentalsDeployed().call().then(console.log);
+   }, 60000);
+
    console.log("\nServer Working...");
+
  }
 
  // on server initialization
  loadBlockchainData();
 
  /* Define blockchain methods */
-// ETH VENGONO TRASFERITI AL CONTRATTO E NON ALL'UTENTE.
-// I REQUIRES IN SOLIDITY NON GENERANO ERRORE (es. id=0).
  function createRental(_fee, _deposit, address, id) {
    var fee = web3.utils.toWei(''+_fee+'', 'Ether');
    var deposit = web3.utils.toWei(''+_deposit+'', 'Ether');
-   rebis.methods.createRental(fee, deposit).send({ from: address })
+   rebis.methods.createRental(fee, deposit).send({ from: address, gas:3000000 })
+            .then(console.log);
    console.log("-> ID:"+ id +": Rental CREATED");
  }
 
  function rentingCustomer(id, fee, address) {
-   rebis.methods.rentingCustomer(id).send({ from:address, value:web3.utils.toWei(''+fee+'', 'Ether') })
+   rebis.methods.rentingCustomer(id).send({ from:address, gas:3000000,
+            value:web3.utils.toWei(''+fee+'', 'Ether') }).then(console.log);
    console.log("-> ID:"+ id +": Rental STARTED");
  }
 
  function depositWarranty(id, deposit, address) {
-   rebis.methods.depositWarranty(id).send({ from:address, value:web3.utils.toWei(''+deposit+'', 'Ether') })
+   rebis.methods.depositWarranty(id).send({ from:address,
+            value:web3.utils.toWei(''+deposit+'', 'Ether') });
    console.log("-> ID:"+ id +": Deposit GIVEN");
  }
 
  function endOfRental(id, deposit, address) {
    rebis.methods.endOfRental(id).send({ from:address, value:web3.utils.toWei(''+deposit+'', 'Ether') })
-   console.log("Rental ENDED");
+   console.log("-> Operation: END -of- " + req.body.ID);
  }
 
   /* handle @GET operations. */
   app.get('/', (req, res) => {
     res.send('This is the \'Main\' directory.');
+    createRental(3, 0, '0x2A7aa7Ca23a5E3a5C3557CB1644bb786f261d96E', 1);
   });
 
   app.get('/rentals', (req, res) => {
     res.send('This is the \'Rentals\' directory');
+    rentingCustomer(3, 0, '0x2A7aa7Ca23a5E3a5C3557CB1644bb786f261d96E');
   });
 
   /* handle @POST operations. */
+  /* POST ROUTE for rentals creation and initialization */
   app.post('/rentals', (req, res) => {
     console.log("\n *** NEW TRANSACTION IN PROGRESS *** ");
     // Test if item actually passes
     console.log("-> Req: Renter: " + req.body.Addressrenter);
     console.log("-> Req: Customer: " + req.body.Addresscustomer);
-
     // Instantiate the item
     const rentalItem = {
       renter: req.body.Renter,
@@ -94,3 +103,22 @@
 
     res.status(200).json(rentalItem);
   });
+
+  /* POST ROUTE for rentals ending */
+  app.post('/ending', (req, res) => {
+    // Instantiate the item
+    const rentalItem = {
+      renter: req.body.Renter,
+      customer: req.body.Customer,
+      adrRenter: req.body.Addressrenter,
+      adrCustomer: req.body.Addresscustomer,
+      rID: req.body.ID,
+      date: req.body.Date,
+      days: req.body.Days,
+      Fee: req.body.Fee,
+      Deposit: req.body.Deposit,
+      state: req.body.State
+    };
+    endOfRental(rentalItem.rID, rentalItem.Deposit, rentalItem.adrRenter);
+    res.status(200).json(rentalItem);
+  })
