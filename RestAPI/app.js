@@ -4,7 +4,10 @@
   // const definition for the route
  const express = require('express');
  const app = express();
- const contract_address = '0x08d710a0717ed022403BcCc4dD4Ce2e878994FE7';
+ const infuraUrl = 'https://ropsten.infura.io/v3/7a56a2e59589490681f5a5c3826db721';
+ const contract_address = '0x291197c18BD6cfBD3eF4945fb2A96423e6ad933D';
+ 
+
   // create a route
   // listen on this port
  app.listen(3100);
@@ -17,60 +20,119 @@
  var rebis;
  var rentalCounter;
  var web3;
+ var networkID;
 
  async function loadBlockchainData() {
    // truffle console --network ropsten     -to connect to the ropsten testnet
-   web3 = new Web3(new Web3.providers.HttpProvider(
-    'https://ropsten.infura.io/v3/7a56a2e59589490681f5a5c3826db721'));
-   const networkID = await web3.eth.net.getId();
-   rebis = new web3.eth.Contract(Rebis.abi, contract_address);
+   web3 = new Web3(infuraUrl);
+
+   networkID = await web3.eth.net.getId();
+   rebis = new web3.eth.Contract(Rebis.abi, Rebis.networks[networkID].address);
+
    var rentalsCounterPrinter = setInterval(function() {
       console.log("Current number of rental transactions: ");
       const cnt = rebis.methods.rentalsDeployed().call().then(console.log);
-   }, 60000);
+   }, 60000); //SET TO 60
 
    console.log("\nServer Working...");
-
  }
 
  // on server initialization
  loadBlockchainData();
 
  /* Define blockchain methods */
- function createRental(_fee, _deposit, address, id) {
+
+ async function createRental(_fee, _deposit, address, id, privateKey) {
    var fee = web3.utils.toWei(''+_fee+'', 'Ether');
    var deposit = web3.utils.toWei(''+_deposit+'', 'Ether');
-   rebis.methods.createRental(fee, deposit).send({ from: address, gas:3000000 })
-            .then(console.log);
+
+   const tx = rebis.methods.createRental(fee, deposit);
+   handleTransaction(tx, address, fee, privateKey, false);
    console.log("-> ID:"+ id +": Rental CREATED");
  }
 
- function rentingCustomer(id, fee, address) {
-   rebis.methods.rentingCustomer(id).send({ from:address, gas:3000000,
-            value:web3.utils.toWei(''+fee+'', 'Ether') }).then(console.log);
+ async function rentingCustomer(id, _fee, address, privateKey) {
+   var fee = web3.utils.toWei(''+_fee+'', 'Ether');
+
+   const tx = rebis.methods.rentingCustomer(id);
+   handleTransaction(tx, address, fee, privateKey, true);
    console.log("-> ID:"+ id +": Rental STARTED");
  }
 
- function depositWarranty(id, deposit, address) {
-   rebis.methods.depositWarranty(id).send({ from:address,
-            value:web3.utils.toWei(''+deposit+'', 'Ether') });
+ function depositWarranty(id, deposit, address, privateKey) {
+   var deposit = web3.utils.toWei(''+_deposit+'', 'Ether');
+
+   const tx = rebis.methods.depositWarranty(id);
+   handleTransaction(tx, address, deposit, privateKey, true);
    console.log("-> ID:"+ id +": Deposit GIVEN");
  }
 
- function endOfRental(id, deposit, address) {
-   rebis.methods.endOfRental(id).send({ from:address, value:web3.utils.toWei(''+deposit+'', 'Ether') })
+ function endOfRental(id, deposit, address, privateKey) {
+   var deposit = web3.utils.toWei(''+_deposit+'', 'Ether');
+   const tx = rebis.methods.endOfRental(id);
+   handleTransaction(tx, address, deposit, privateKey, true);
    console.log("-> Operation: END -of- " + req.body.ID);
+ }
+
+ async function handleTransaction(tx, address, fee, privateKey, doPay) {
+   web3.eth.accounts.wallet.add(privateKey);
+
+   const estimimatedgas = await tx.estimateGas({ from: address });
+   const gas = estimimatedgas + 15000;
+   const gasPrice = await web3.eth.getGasPrice();
+   const data = tx.encodeABI();
+   const nonce = await web3.eth.getTransactionCount(address);
+   var value = 0;
+   if (doPay)
+      value = fee;
+
+   const txData = {
+        from: address,
+        to: rebis.options.address,
+        data,
+        gas,
+        gasPrice,
+        value,
+        nonce,
+        chain: 'ropsten',
+        hardfork: 'istanbul'
+   };
+   const receipt = await web3.eth.sendTransaction(txData);
+   console.log('Transaction hash: ' + receipt.transactionHash);
+ }
+
+ async function handleSIGNEDTransaction(tx, address, fee, privateKey, doPay) {
+   const gas = await tx.estimateGas({ from: address });
+   const gasPrice = await web3.eth.getGasPrice();
+   const data = tx.encodeABI();
+   const nonce = await web3.eth.getTransactionCount(address);
+   var value = 0;
+   if (doPay)
+      value = fee;
+
+   const signedTx = await web3.eth.accounts.signTransaction(
+     {
+        to: rebis.options.address,
+        data,
+        gas,
+        gasPrice,
+        value,
+        nonce,
+        chainId: networkID
+      },
+      privateKey
+   );
+   const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+   console.log('Transaction hash: ' + receipt.transactionHash);
  }
 
   /* handle @GET operations. */
   app.get('/', (req, res) => {
     res.send('This is the \'Main\' directory.');
-    createRental(3, 0, '0x2A7aa7Ca23a5E3a5C3557CB1644bb786f261d96E', 1);
   });
 
   app.get('/rentals', (req, res) => {
     res.send('This is the \'Rentals\' directory');
-    rentingCustomer(3, 0, '0x2A7aa7Ca23a5E3a5C3557CB1644bb786f261d96E');
   });
 
   /* handle @POST operations. */
