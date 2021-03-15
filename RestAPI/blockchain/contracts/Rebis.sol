@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.1;
 
 contract Rebis {
   string public dapp_name;
@@ -11,7 +11,6 @@ contract Rebis {
 
   mapping(uint => Rental) public rentals;
 
-
   modifier onlyOwner() {
     require (msg.sender == owner);
     _;
@@ -19,7 +18,7 @@ contract Rebis {
 
   constructor() {
       dapp_name = "Rebis";
-      owner = msg.sender;
+      owner = payable(msg.sender);
   }
 
   struct Rental {
@@ -31,23 +30,24 @@ contract Rebis {
     states rentalState;
   }
 
-  function createRental(uint _fee, uint _deposit) public {
+  function createRental(uint _fee, uint _deposit, address payable _renter, uint _id) public {
     //set a condition, can't have free rentals
-    require (_fee > 0);
+    require (_fee > 0, "Transaction can not be void");
+    require(rentals[_id].renter == address(0x0), "ID already existing");
     //increment number of rentals, which is also the id
     rentalCounter++;
     //create a new rental
-    rentals[rentalCounter] = Rental(rentalCounter, msg.sender, address(0), _fee, _deposit, states.PENDING);
+    rentals[_id] = Rental(_id, _renter, payable(address(0)), _fee, _deposit, states.PENDING);
   }
 
-  function rentingCustomer(uint _id) public payable {
+  function rentingCustomer(uint _id, address payable _customer) public payable {
     //check the mutex for reentrancy
     require(!reEntrancyMutex1, "Mutex must be false");
     //target rental must exist
-    require(_id> 0 && _id<= rentalCounter, "RentalID is out of bound");
+    require(_id> 0); //&& _id<= rentalCounter, "RentalID is out of bound");
     require(rentals[_id].customer != msg.sender, "Customer equals the sender");
     //now we can instantiate the customer
-    rentals[_id].customer = msg.sender;
+    rentals[_id].customer = _customer;
     //customer must have enough money
     uint totalAmount = rentals[_id].fee + rentals[_id].deposit;
     require (msg.sender.balance >= totalAmount, "Not enough ETH in balance");
@@ -63,7 +63,7 @@ contract Rebis {
 
   function depositWarranty(uint _id) public payable {
     //target rental must exist
-    require(_id> 0 && _id<= rentalCounter);
+    require(_id> 0); //&& _id<= rentalCounter, "Deposit: target does not exist");
     //transfer eth
     if (msg.value == 0 && rentals[_id].deposit != 0) {
       rentals[_id].deposit = 0;
@@ -74,15 +74,14 @@ contract Rebis {
 
   function endOfRental(uint _id) public payable {
     //check the mutex for reentrancy
-    require(!reEntrancyMutex2);
+    require(!reEntrancyMutex2, "Mutex not available");
     //target rental must exist
-    require(_id> 0 && _id<= rentalCounter);
+    require(_id> 0); //&& _id<= rentalCounter, "End: target does not exist");
     //get the target rental
     Rental memory _rental = rentals[_id];
-    require(_rental.rentalState == states.RENTED);
+    require(_rental.rentalState == states.RENTED, "End: state not matching");
     //return deposit
-    require(msg.sender == _rental.renter);
-    require (msg.sender.balance >= _rental.deposit);
+    require (msg.sender.balance >= _rental.deposit, "End: not enough funds");
     //avoid re-entrancy
     reEntrancyMutex2 = true;
     //trasnfer eth
